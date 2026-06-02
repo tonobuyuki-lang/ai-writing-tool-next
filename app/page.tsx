@@ -24,13 +24,13 @@ export default function Home() {
   const [activeKey, setActiveKey] = useState(TOOLS[0].key);
   const tool = useMemo(() => TOOLS.find((t) => t.key === activeKey)!, [activeKey]);
 
-  const [values, setValues] = useState<Record<string, string | number>>({});
-  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [values, setValues]       = useState<Record<string, string | number>>({});
+  const [model, setModel]         = useState(DEFAULT_MODEL);
   const [temperature, setTemperature] = useState<number>(tool.temperature);
-  const [result, setResult] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [result, setResult]       = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState("");
+  const [copied, setCopied]       = useState(false);
 
   function selectTool(t: Tool) {
     setActiveKey(t.key);
@@ -44,7 +44,6 @@ export default function Home() {
     setValues((prev) => ({ ...prev, [key]: v }));
   }
 
-  // 先頭の text / textarea を必須入力とみなす
   function requiredFilled(): boolean {
     const f = tool.fields.find((x) => x.type === "text" || x.type === "textarea");
     if (!f) return true;
@@ -92,7 +91,7 @@ export default function Home() {
   async function copyResult() {
     await navigator.clipboard.writeText(result);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setTimeout(() => setCopied(false), 1800);
   }
 
   function downloadResult() {
@@ -106,140 +105,161 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen bg-neutral-50 text-neutral-900">
-      {/* サイドバー */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-neutral-200 bg-white p-4 sm:flex">
-        <h1 className="mb-1 text-lg font-bold">🖊️ AIライティング</h1>
-        <p className="mb-4 text-xs text-neutral-500">個人用ツール</p>
-        <nav className="flex flex-col gap-1">
+    <div style={{ display: "flex", minHeight: "100vh" }}>
+
+      {/* ══ サイドバー ══ */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-title">🖊️ AIライティング</div>
+          <div className="sidebar-logo-sub">個人用ツール</div>
+        </div>
+        <nav className="sidebar-nav">
           {TOOLS.map((t) => (
             <button
               key={t.key}
               onClick={() => selectTool(t)}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${
-                t.key === activeKey
-                  ? "bg-blue-600 text-white"
-                  : "text-neutral-700 hover:bg-neutral-100"
-              }`}
+              className={`tool-item${t.key === activeKey ? " active" : ""}`}
             >
-              <span>{t.icon}</span>
+              <span className="tool-icon">{t.icon}</span>
               <span>{t.label}</span>
             </button>
           ))}
         </nav>
       </aside>
 
-      {/* メイン */}
-      <main className="flex-1 px-4 py-6 sm:px-8">
-        <div className="mx-auto max-w-3xl">
+      {/* ══ メインコンテンツ ══ */}
+      <main className="main-content">
+        <div className="content-inner">
+
           {/* モバイル用ツール選択 */}
-          <div className="mb-4 sm:hidden">
+          <div className="mobile-tool-select">
             <select
               value={activeKey}
               onChange={(e) => selectTool(TOOLS.find((t) => t.key === e.target.value)!)}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm"
+              className="form-select"
             >
               {TOOLS.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.icon} {t.label}
-                </option>
+                <option key={t.key} value={t.key}>{t.icon} {t.label}</option>
               ))}
             </select>
           </div>
 
-          <header className="mb-6">
-            <h2 className="text-2xl font-bold">
-              {tool.icon} {tool.label}
-            </h2>
-            <p className="mt-1 text-sm text-neutral-500">{tool.description}</p>
+          {/* ツールヘッダー */}
+          <header className="tool-header" key={tool.key}>
+            <h1 className="tool-header-title">
+              <span className="tool-emoji">{tool.icon}</span>
+              {tool.label}
+            </h1>
+            <p className="tool-header-desc">{tool.description}</p>
           </header>
 
           {/* 入力フォーム */}
-          <div className="space-y-4 rounded-xl border border-neutral-200 bg-white p-5">
+          <div className="form-card">
             {tool.fields.map((f) => (
-              <Field key={f.key} field={f} value={values[f.key]} onChange={setField} />
+              <Field
+                key={`${tool.key}-${f.key}`}
+                field={f}
+                value={values[f.key]}
+                onChange={setField}
+              />
             ))}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">モデル</span>
+            <div className="controls-row">
+              {/* モデル選択 */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">モデル</label>
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  className="form-select"
                 >
                   {MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
+                    <option key={m.id} value={m.id}>{m.label}</option>
                   ))}
                 </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">
-                  創造性 (temperature): {temperature.toFixed(1)}
-                </span>
+              </div>
+
+              {/* 創造性スライダー */}
+              <div>
+                <div className="range-header">
+                  <span className="form-label">創造性</span>
+                  <span className="range-badge">{temperature.toFixed(1)}</span>
+                </div>
                 <input
                   type="range"
-                  min={0}
-                  max={1}
-                  step={0.1}
+                  min={0} max={1} step={0.1}
                   value={temperature}
                   onChange={(e) => setTemperature(Number(e.target.value))}
-                  className="w-full"
                 />
-              </label>
+                <div className="range-hints">
+                  <span className="range-hint">堅実</span>
+                  <span className="range-hint">創造的</span>
+                </div>
+              </div>
             </div>
 
+            {/* 生成ボタン */}
             <button
               onClick={generate}
               disabled={loading}
-              className="w-full rounded-lg bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+              className="btn-generate"
             >
-              {loading ? "生成中…" : "✨ 生成する"}
+              {loading ? (
+                <span className="btn-loading">
+                  <span>生成中</span>
+                  <span className="loading-dots">
+                    <span className="loading-dot" />
+                    <span className="loading-dot" />
+                    <span className="loading-dot" />
+                  </span>
+                </span>
+              ) : (
+                "✨ 生成する"
+              )}
             </button>
           </div>
 
-          {error && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+          {/* エラー */}
+          {error && <div className="error-box">{error}</div>}
 
           {/* 生成結果 */}
           {(result || loading) && (
-            <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="font-semibold">生成結果</h3>
+            <div className="result-card">
+              <div className="result-header">
+                <span className="result-label">
+                  <span className="result-live-dot" />
+                  生成結果
+                </span>
                 {result && (
-                  <div className="flex gap-2">
+                  <div className="result-actions">
                     <button
                       onClick={copyResult}
-                      className="rounded-md border border-neutral-300 px-3 py-1 text-xs hover:bg-neutral-100"
+                      className={`btn-action${copied ? " copied" : ""}`}
                     >
-                      {copied ? "コピーしました" : "📋 コピー"}
+                      {copied ? "✓ コピー完了" : "📋 コピー"}
                     </button>
-                    <button
-                      onClick={downloadResult}
-                      className="rounded-md border border-neutral-300 px-3 py-1 text-xs hover:bg-neutral-100"
-                    >
+                    <button onClick={downloadResult} className="btn-action">
                       📥 保存
                     </button>
                   </div>
                 )}
               </div>
-              <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-neutral-800">
+              <div className="result-body">
                 {result}
-                {loading && <span className="animate-pulse">▌</span>}
-              </pre>
-            </section>
+                {loading && <span className="stream-cursor" />}
+              </div>
+            </div>
           )}
+
         </div>
       </main>
     </div>
   );
 }
 
+/* ══════════════════════════════════════════════════════
+   フィールドコンポーネント（動的フォーム生成）
+   ══════════════════════════════════════════════════════ */
 function Field({
   field,
   value,
@@ -249,59 +269,56 @@ function Field({
   value: string | number | undefined;
   onChange: (key: string, v: string | number) => void;
 }) {
-  const base =
-    "w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none";
-
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium">{field.label}</span>
+    <div className="form-group">
+      <label className="form-label">{field.label}</label>
+
       {field.type === "text" && (
         <input
           type="text"
           value={(value as string) ?? ""}
           placeholder={field.placeholder}
           onChange={(e) => onChange(field.key, e.target.value)}
-          className={base}
+          className="form-input"
         />
       )}
+
       {field.type === "textarea" && (
         <textarea
           value={(value as string) ?? ""}
           placeholder={field.placeholder}
           onChange={(e) => onChange(field.key, e.target.value)}
-          rows={6}
-          className={base}
+          className="form-textarea"
         />
       )}
+
       {field.type === "select" && (
         <select
           value={(value as string) ?? field.options?.[0]}
           onChange={(e) => onChange(field.key, e.target.value)}
-          className={base}
+          className="form-select"
         >
           {field.options?.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
+            <option key={o} value={o}>{o}</option>
           ))}
         </select>
       )}
+
       {field.type === "slider" && (
-        <div className="flex items-center gap-3">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <input
             type="range"
-            min={field.min}
-            max={field.max}
+            min={field.min} max={field.max}
             step={field.step ?? 1}
             value={(value as number) ?? field.default ?? field.min}
             onChange={(e) => onChange(field.key, Number(e.target.value))}
-            className="flex-1"
+            style={{ flex: 1 }}
           />
-          <span className="w-8 text-sm text-neutral-600">
+          <span className="range-badge">
             {(value as number) ?? field.default ?? field.min}
           </span>
         </div>
       )}
-    </label>
+    </div>
   );
 }
