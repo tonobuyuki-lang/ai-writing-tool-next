@@ -1,6 +1,28 @@
-// Gemini 生成 API（サーバー専用）。
-// APIキーはここでしか使わないため、ブラウザ／第三者に漏れない。
-// クライアントは toolKey・入力値・model・temperature を送り、ここでプロンプトを組み立てる。
+/**
+ * Gemini 生成 API Route（サーバー専用）
+ *
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 【Next.js版のアーキテクチャ】
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *
+ *   ブラウザ (page.tsx)          サーバー (このファイル)
+ *  ┌─────────────────────┐      ┌─────────────────────┐
+ *  │ フォーム入力         │      │ GEMINI_API_KEY       │
+ *  │ toolKey, values     │ POST │ ← 環境変数のみ       │
+ *  │ model, temperature  │ ───→ │ プロンプト組み立て   │
+ *  │                     │      │ Gemini API 呼び出し  │
+ *  │ reader.read() ループ│ ←── │ ReadableStream で返す│
+ *  │ でリアルタイム表示   │stream│                     │
+ *  └─────────────────────┘      └─────────────────────┘
+ *
+ * APIキーはこのファイルの process.env からしか読まない。
+ * ブラウザ（page.tsx）は絶対にキーに触れない。
+ *
+ * 【Streamlit版との比較】
+ *   Streamlit: UIとAPIキーが同一Pythonプロセス内に共存。
+ *              ブラウザからキーを渡すことも可能（サイドバー入力）。
+ *   Next.js  : UIとAPIが物理的に分離。キーはサーバー側に完全隔離。
+ */
 
 import { GoogleGenAI } from "@google/genai";
 import { TOOLS_BY_KEY, DEFAULT_MODEL } from "@/lib/tools";
@@ -15,13 +37,25 @@ interface GenerateBody {
   temperature?: number;
 }
 
+/**
+ * 【リトライの実装比較】
+ *
+ * Next.js版（このファイル）:
+ *   JavaScript は非同期なので Promise ベースの sleep が必要。
+ *   await sleep(ms) = await new Promise(r => setTimeout(r, ms))
+ *
+ * Streamlit版（gemini_client.py）:
+ *   Python の同期コードなので time.sleep(wait) と素直に書ける。
+ */
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function POST(req: Request) {
+  // ▼ APIキーはここだけで読む。NEXT_PUBLIC_ を付けないことでブラウザに漏れない。
+  //   Streamlit版では os.getenv() に加え、サイドバー入力（override引数）でも渡せる。
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: "GEMINI_API_KEY が設定されていません（サーバー環境変数）。" }),
+      JSON.stringify({ error: "GEMINI_API_KEY が設定されていません（Vercel環境変数）。" }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
@@ -50,7 +84,7 @@ export async function POST(req: Request) {
 
   const ai = new GoogleGenAI({ apiKey });
 
-  // 503/429 は一時的なことが多いので指数バックオフでリトライ
+  // 503/429 は一時的なことが多いので指数バックオフでリトライ（1→2→4→8秒）
   const maxRetries = 4;
   let lastErr: unknown = null;
 
@@ -59,12 +93,19 @@ export async function POST(req: Request) {
       const responseStream = await ai.models.generateContentStream({
         model,
         contents: prompt,
-        config: {
-          temperature,
-          systemInstruction: tool.system,
-        },
+        config: { temperature, systemInstruction: tool.system },
       });
 
+      /**
+       * ▼ Next.js版のストリーミング: Web標準の ReadableStream を手動構築。
+       *
+       *   Streamlit版: st.write_stream(generator) の1行で完結。
+       *                Streamlit がジェネレータを受け取り、画面への表示まで担う。
+       *
+       *   Next.js版  : ReadableStream を自前で作り、fetch レスポンスとして返す。
+       *                クライアント（page.tsx）が reader.read() ループで逐次受信・表示。
+       *                コードは増えるが、より細かい制御が可能。
+       */
       const encoder = new TextEncoder();
       const stream = new ReadableStream<Uint8Array>({
         async start(controller) {
@@ -91,7 +132,9 @@ export async function POST(req: Request) {
       const msg = String(e);
       const transient = msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("429");
       if (transient && attempt < maxRetries) {
-        await sleep(2 ** attempt * 1000); // 1,2,4,8 秒
+        // ▼ Next.js版のリトライ待機: Promise ベースの非同期 sleep
+        //   Streamlit版では time.sleep(wait) と同期的に書ける
+        await sleep(2 ** attempt * 1000);
         continue;
       }
       break;

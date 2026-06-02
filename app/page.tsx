@@ -1,4 +1,21 @@
 "use client";
+/**
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 【Next.js版: クライアントコンポーネント（UI専任）】
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * このファイルはブラウザで動く。APIキーには一切触れない。
+ * 生成ボタンを押すと /api/generate（route.ts）へ POST し、
+ * ストリーミングレスポンスを reader.read() で逐次受信して表示する。
+ *
+ * 【Streamlit版（app.py）との比較】
+ *   Streamlit: UIとロジックが app.py 1ファイルに同居。
+ *              st.write_stream(stream) の1行でストリーミング表示。
+ *              APIキーをサイドバーから直接 Python 関数に渡せる。
+ *
+ *   Next.js  : UIはこのファイル（ブラウザ）、APIはroute.ts（サーバー）に分離。
+ *              fetch + ReadableStream で手動ストリーミング受信。
+ *              APIキーはブラウザに届かない（route.tsのみが保持）。
+ */
 
 import { useMemo, useState } from "react";
 import { TOOLS, MODELS, DEFAULT_MODEL, type Tool, type ToolField } from "@/lib/tools";
@@ -54,6 +71,8 @@ export default function Home() {
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
 
+      // ▼ Next.js版のストリーミング受信: reader.read() ループで逐次取得・表示
+      //   Streamlit版では st.write_stream(generator) の1行だけでここ全体を担う
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let acc = "";
@@ -61,7 +80,7 @@ export default function Home() {
         const { done, value } = await reader.read();
         if (done) break;
         acc += decoder.decode(value, { stream: true });
-        setResult(acc);
+        setResult(acc); // チャンクが届くたびに画面を更新（リアルタイム表示）
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
