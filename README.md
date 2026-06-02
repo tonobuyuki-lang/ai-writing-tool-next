@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🖊️ AIライティングツール（Next.js版）
 
-## Getting Started
+Next.js + Vercel + Gemini API で作る、オールインワンのライティング支援ツール。
+APIキーはサーバー側(API Route)でのみ使用するため、ブラウザ／第三者に漏れません。
 
-First, run the development server:
+## 搭載ツール
+
+| ツール | 用途 |
+|--------|------|
+| 📝 ブログ記事執筆 | テーマ・キーワードから構成付き記事を生成 |
+| ✉️ メール返信文作成 | 受信メールに対する返信文を作成 |
+| 📋 文章要約 | 長文を指定形式・長さで要約 |
+| ✨ 校正・リライト | 誤字脱字修正・トーン変換 |
+| 🌐 翻訳 | 自然な多言語翻訳 |
+| 📱 SNS投稿生成 | 各SNS向け投稿文を3案生成 |
+| 💡 タイトル・見出し案 | クリックされやすい案を複数提案 |
+
+機能追加は `lib/tools.ts` に `Tool` を足すだけ（UIは自動生成）。
+
+## モデル選択（費用対効果）
+
+| モデル | 入力/出力(100万トークン) | 用途 |
+|--------|--------------------------|------|
+| **gemini-2.5-flash**（デフォルト） | $0.30 / $2.50 | 品質・速度・コストの最良バランス |
+| gemini-2.5-flash-lite | $0.10 / $0.40 | 要約・翻訳など軽量タスク向け（最安） |
+| gemini-2.5-pro | $1.25 / $10.00 | 高品質が必要な時のみ |
+
+## ローカル起動
 
 ```bash
+cd projects/ai-writing-tool-next
+
+# 1. APIキー設定
+cp .env.example .env.local   # .env.local を編集して GEMINI_API_KEY を記入
+
+# 2. 起動
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+APIキーは [Google AI Studio](https://aistudio.google.com/apikey) で無料取得できます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Vercel へのデプロイ
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. GitHub にリポジトリを push
+2. [vercel.com](https://vercel.com) で「Add New → Project」→ リポジトリを Import
+3. **Environment Variables** に `GEMINI_API_KEY` を登録（Value に本物のキー）
+4. Deploy → `https://〇〇.vercel.app` で公開
 
-## Learn More
+以降は `git push` するたびに自動で再デプロイされます。
 
-To learn more about Next.js, take a look at the following resources:
+> Streamlit版と違い、APIキーはサーバー側でのみ使われるため、
+> アプリURLを公開しても閲覧者にキーは渡りません。ただし誰でも
+> 生成機能を使える状態にはなるので、必要に応じて Vercel の
+> Password Protection 等でアクセス制限してください。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 構成
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+ai-writing-tool-next/
+├── app/
+│   ├── page.tsx              # メイン画面（クライアント・UI動的生成）
+│   ├── layout.tsx
+│   └── api/generate/route.ts # Gemini 呼び出し（サーバー専用・ストリーミング）
+├── lib/
+│   └── tools.ts              # 7ツール定義 + モデル一覧
+├── .env.example
+└── README.md
+```
